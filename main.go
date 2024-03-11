@@ -109,12 +109,18 @@ func (b *pipelineBuilder) Sort(sort interface{}) *pipelineBuilder {
 }
 
 func (b *pipelineBuilder) Skip(skip int64) *pipelineBuilder {
-	b.pipeline = append(b.pipeline, bson.M{"$skip": skip})
+	if skip > 0 {
+		b.pipeline = append(b.pipeline, bson.M{"$skip": skip})
+	}
+
 	return b
 }
 
 func (b *pipelineBuilder) Limit(limit int64) *pipelineBuilder {
-	b.pipeline = append(b.pipeline, bson.M{"$limit": limit})
+	if limit > 0 {
+		b.pipeline = append(b.pipeline, bson.M{"$limit": limit})
+	}
+
 	return b
 }
 
