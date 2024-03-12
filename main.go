@@ -2,6 +2,7 @@ package mongoquerymaker
 
 import (
 	"fmt"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -33,11 +34,24 @@ func (b *pipelineBuilder) Lookup(from, localField, foreignField, as string, opts
 		opts = &LookupOptions{}
 	}
 
+	if len(opts.Exposes) == 0 && len(opts.Pipeline) == 0 {
+		b.pipeline = append(b.pipeline, bson.M{
+			"$lookup": bson.M{
+				"from":         from,
+				"localField":   localField,
+				"foreignField": foreignField,
+				"as":           as,
+			},
+		})
+
+		return b
+	}
+
 	filter := []bson.M{
 		{
 			"$eq": bson.A{
 				fmt.Sprintf("$%s", foreignField),
-				fmt.Sprintf("$$%s_tmp", localField),
+				fmt.Sprintf("$$%s_tmp", strings.ReplaceAll(localField, "_", "")),
 			},
 		},
 	}
@@ -85,8 +99,10 @@ func (b *pipelineBuilder) Lookup(from, localField, foreignField, as string, opts
 
 	b.pipeline = append(b.pipeline, bson.M{
 		"$lookup": bson.M{
-			"from":     from,
-			"let":      bson.M{fmt.Sprintf("%s_tmp", localField): fmt.Sprintf("$%s", localField)},
+			"from": from,
+			"let": bson.M{
+				fmt.Sprintf("%s_tmp", strings.ReplaceAll(localField, "_", "")): fmt.Sprintf("$%s", localField),
+			},
 			"pipeline": p,
 			"as":       as,
 		},
