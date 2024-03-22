@@ -17,8 +17,57 @@ func New() *pipelineBuilder {
 	}
 }
 
+func (b *pipelineBuilder) findFilterIndex() (bool, int) {
+	for idx, pipelineItem := range b.pipeline {
+		if _, ok := pipelineItem["$match"]; ok {
+			return true, idx
+		}
+	}
+
+	return false, 0
+}
+
 func (b *pipelineBuilder) Filter(filter interface{}) *pipelineBuilder {
-	b.pipeline = append(b.pipeline, bson.M{"$match": filter})
+	if ok, idx := b.findFilterIndex(); ok {
+		b.pipeline[idx]["$match"] = filter
+	} else {
+		b.pipeline = append(b.pipeline, bson.M{"$match": filter})
+	}
+
+	return b
+}
+
+func (b *pipelineBuilder) KeywordFilter(keyword string, fields ...string) *pipelineBuilder {
+	f := bson.M{"name": bson.M{"$regex": keyword, "$options": "i"}}
+
+	if len(fields) == 1 {
+		if ok, idx := b.findFilterIndex(); ok {
+			b.pipeline[idx]["$match"].(bson.M)[fields[0]] = f
+		} else {
+			b.pipeline = append(b.pipeline, bson.M{"$match": bson.M{fields[0]: f}})
+		}
+	} else {
+		items := make([]bson.M, len(fields))
+		for idx, field := range fields {
+			items[idx] = bson.M{field: f}
+		}
+
+		if ok, idx := b.findFilterIndex(); ok {
+			if _, ok := b.pipeline[idx]["$match"].(bson.M)["$or"]; ok {
+				b.pipeline[idx]["$match"] = bson.M{
+					"$and": []bson.M{
+						b.pipeline[idx]["$match"].(bson.M),
+						{"$or": items},
+					},
+				}
+			} else {
+				b.pipeline[idx]["$match"].(bson.M)["$or"] = items
+			}
+		} else {
+			b.pipeline = append(b.pipeline, bson.M{"$match": bson.M{"$or": items}})
+		}
+	}
+
 	return b
 }
 
