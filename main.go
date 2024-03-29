@@ -76,6 +76,7 @@ type LookupOptions struct {
 	Pipeline  []bson.M
 	FromTrash bool
 	Exposes   []string
+	IsArry    bool
 }
 
 func (b *pipelineBuilder) Lookup(from, localField, foreignField, as string, opts *LookupOptions) *pipelineBuilder {
@@ -96,13 +97,21 @@ func (b *pipelineBuilder) Lookup(from, localField, foreignField, as string, opts
 		return b
 	}
 
-	filter := []bson.M{
-		{
-			"$eq": bson.A{
-				fmt.Sprintf("$%s", foreignField),
-				fmt.Sprintf("$$%s_tmp", strings.ReplaceAll(localField, "_", "")),
-			},
-		},
+	condition := bson.A{
+		fmt.Sprintf("$%s", foreignField),
+		fmt.Sprintf("$$%s_tmp", strings.ReplaceAll(localField, "_", "")),
+	}
+
+	filter := []bson.M{}
+
+	if opts.IsArry {
+		filter = append(filter, bson.M{
+			"$in": condition,
+		})
+	} else {
+		filter = append(filter, bson.M{
+			"$eq": condition,
+		})
 	}
 
 	if len(opts.Filter) > 0 {
